@@ -35,3 +35,11 @@ app.use(routeNotFound);
 app.use(errorHandler);
 
 app.listen(port, () => console.log(`Server listening on ${port}`));
+
+// Backend health endpoint for Azure verification
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: "UP", 
+    message: "Backend health endpoint returns HTTP 200" 
+  });
+});
