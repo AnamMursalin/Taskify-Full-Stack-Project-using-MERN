@@ -39,14 +39,47 @@ stages:
             inputs:
               pollingTimeoutSec: '300'
 
+  - stage: SCA
+    displayName: 'Security - SCA (Snyk)'
+    dependsOn: SAST
+    condition: succeeded()
+    jobs:
+      - job: SnykScan
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - checkout: self
+
+          # 1. Scan Backend Dependencies (mapped via backend symlink)
+          - task: SnykSecurityScan@1
+            displayName: 'Snyk - Scan Backend Dependencies'
+            inputs:
+              serviceConnectionEndpoint: snyk-connection
+              testType: 'app'
+              targetFile: 'backend/package.json'
+              failOnIssues: true
+              monitorWhen: 'always'
+              additionalArguments: '--severity-threshold=high'
+
+          # 2. Scan Frontend Dependencies (mapped via frontend symlink)
+          - task: SnykSecurityScan@1
+            displayName: 'Snyk - Scan Frontend Dependencies'
+            inputs:
+              serviceConnectionEndpoint: snyk-connection
+              testType: 'app'
+              targetFile: 'frontend/package.json'
+              failOnIssues: true
+              monitorWhen: 'always'
+              additionalArguments: '--severity-threshold=high'
+
   - stage: BuildAndDeploy
     displayName: 'Build & Deploy'
-    dependsOn: SAST
-    condition: succeeded() # This stage will ONLY run if the security scan passes completely
+    dependsOn: [SAST, SCA]
+    condition: succeeded() # This stage will ONLY run if both SonarQube (SAST) and Snyk (SCA) pass completely
     jobs:
       - job: Build
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          - script: echo 'SAST passed! Proceeding to build production files...'
+          - script: echo 'SAST and SCA passed! Proceeding to build production files...'
             displayName: 'Production Compile'
