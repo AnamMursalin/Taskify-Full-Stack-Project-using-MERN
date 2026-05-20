@@ -1,0 +1,52 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+stages:
+  - stage: SAST
+    displayName: 'Security - SAST (SonarQube)'
+    jobs:
+      - job: SonarScan
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          # Pull the full Git history so SonarQube can map code issues to specific commits
+          - checkout: self
+            fetchDepth: 0 
+
+          # 1. Prepare Environment
+          - task: SonarQubePrepare@7
+            displayName: 'Prepare SonarQube Analysis'
+            inputs:
+              SonarQube: 'sonarqube-connection'
+              scannerMode: 'CLI'
+              configMode: 'manual'
+              cliProjectKey: 'Taskify-Full-Stack-Project-using-MERN.git'
+              cliProjectName: 'Taskify MERN Stack'
+              extraProperties: |
+                sonar.sources=server,client
+                sonar.exclusions=**/node_modules/**,**/build/**,**/dist/**
+
+          # 2. Run execution scanner metrics against files
+          - task: SonarQubeAnalyze@7
+            displayName: 'Run SonarQube Analysis'
+
+          # 3. Block and poll for Quality Gate status before finalizing
+          - task: SonarQubePublish@7
+            displayName: 'Publish Quality Gate Result'
+            inputs:
+              pollingTimeoutSec: '300'
+
+  - stage: BuildAndDeploy
+    displayName: 'Build & Deploy'
+    dependsOn: SAST
+    condition: succeeded() # This stage will ONLY run if the security scan passes completely
+    jobs:
+      - job: Build
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - script: echo 'SAST passed! Proceeding to build production files...'
+            displayName: 'Production Compile'
