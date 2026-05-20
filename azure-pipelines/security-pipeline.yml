@@ -4,10 +4,6 @@ trigger:
       - main
       - develop
 
-variables:
-  SONAR_PROJECT_KEY: 'taskapp-cicd_taskapp-backend'
-  SONAR_HOST_URL: 'http://13.67.38.56:9000'
-
 stages:
   - stage: SAST
     displayName: 'Security - SAST (SonarQube)'
@@ -16,25 +12,29 @@ stages:
         pool:
           vmImage: 'ubuntu-latest'
         steps:
+          # Pull the full Git history so SonarQube can map code issues to specific commits
           - checkout: self
-            fetchDepth: 0 # Full history needed for blame
+            fetchDepth: 0 
 
-          - task: SonarQubePrepare@5
+          # 1. Prepare Environment
+          - task: SonarQubePrepare@7
             displayName: 'Prepare SonarQube Analysis'
             inputs:
-              SonarQube: 'sonarqube-connection' # Service connection name in Azure DevOps
+              SonarQube: 'sonarqube-connection'
               scannerMode: 'CLI'
               configMode: 'manual'
-              cliProjectKey: $(SONAR_PROJECT_KEY)
-              cliProjectName: 'Task App Backend'
+              cliProjectKey: 'Taskify-Full-Stack-Project-using-MERN.git'
+              cliProjectName: 'Taskify MERN Stack'
               extraProperties: |
-                sonar.sources=server
-                sonar.exclusions=**/node_modules/**,**/client/**
+                sonar.sources=server,client
+                sonar.exclusions=**/node_modules/**,**/build/**,**/dist/**
 
-          - task: SonarQubeAnalyze@5
+          # 2. Run execution scanner metrics against files
+          - task: SonarQubeAnalyze@7
             displayName: 'Run SonarQube Analysis'
 
-          - task: SonarQubePublish@5
+          # 3. Block and poll for Quality Gate status before finalizing
+          - task: SonarQubePublish@7
             displayName: 'Publish Quality Gate Result'
             inputs:
               pollingTimeoutSec: '300'
@@ -42,12 +42,11 @@ stages:
   - stage: BuildAndDeploy
     displayName: 'Build & Deploy'
     dependsOn: SAST
-    condition: succeeded() # Only runs if SAST stage successfully passed the Quality Gate
+    condition: succeeded() # This stage will ONLY run if the security scan passes completely
     jobs:
       - job: Build
         pool:
           vmImage: 'ubuntu-latest'
         steps:
-          - script: echo 'Building and deploying to Azure Container Apps...'
-            displayName: 'Deploy Application'
-          # You can add your docker build & push script or Terraform apply commands here
+          - script: echo 'SAST passed! Proceeding to build production files...'
+            displayName: 'Production Compile'
