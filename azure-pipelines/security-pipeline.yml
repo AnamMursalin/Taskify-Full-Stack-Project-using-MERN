@@ -50,24 +50,24 @@ stages:
         steps:
           - checkout: self
 
-          # 1. Scan Node.js Backend Dependencies (in server directory)
+          # 1. Scan Backend Dependencies (mapped via backend symlink)
           - task: SnykSecurityScan@1
             displayName: 'Snyk - Scan Backend Dependencies'
             inputs:
               serviceConnectionEndpoint: snyk-connection
               testType: 'app'
-              targetFile: 'server/package.json'
+              targetFile: 'backend/package.json'
               failOnIssues: true
               monitorWhen: 'always'
               additionalArguments: '--severity-threshold=high'
 
-          # 2. Scan React Frontend Dependencies (in client directory)
+          # 2. Scan Frontend Dependencies (mapped via frontend symlink)
           - task: SnykSecurityScan@1
             displayName: 'Snyk - Scan Frontend Dependencies'
             inputs:
               serviceConnectionEndpoint: snyk-connection
               testType: 'app'
-              targetFile: 'client/package.json'
+              targetFile: 'frontend/package.json'
               failOnIssues: true
               monitorWhen: 'always'
               additionalArguments: '--severity-threshold=high'
